@@ -123,7 +123,7 @@ def executeCommand(commandArgs, quitOnError = True, redirectStdoutHere = None):
 # Parse command-line arguments
 parser = argparse.ArgumentParser()
 parser.add_argument("--keep-files", action="store_true", help="Don't delete intermediate files")
-parser.add_argument("-t", "--template", default="", help="Template DOCX file for pandoc")
+parser.add_argument("-t", "--template", default="", help="Template DOCX file for pandoc (maps to pandoc --reference-docx argument)")
 parser.add_argument("lyxfile", help="Input file")
 args = parser.parse_args()
 
@@ -233,7 +233,7 @@ putFileContents(xhtmlFile, dom.toxml())
 # Generate the DOCX file using pandoc (using a custom template if specified)
 pandocCommand = ["pandoc", "-o", docxFile, xhtmlFile]
 if args.template != "":
-	pandocCommand.extend(["--template", args.template])
+	pandocCommand.extend(["--reference-docx", args.template])
 executeCommand(pandocCommand)
 
 # Determine if we are removing the intermediate files
