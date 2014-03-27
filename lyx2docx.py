@@ -36,30 +36,29 @@
 
 from __future__ import print_function
 from xml.dom.minidom import parse, parseString
-from subprocess import call
-import re, os, sys, argparse
+import re, os, sys, subprocess, argparse
 
 # Retrieves the contents of a file
-def file_get_contents(filename):
+def getFileContents(filename):
 	f = open(filename, "r")
 	data = f.read()
 	f.close()
 	return data
 
 # Writes the contents of a file
-def file_put_contents(filename, data):
+def putFileContents(filename, data):
 	f = open(filename, "w")
 	f.write(data.encode("utf-8"))
 	f.close()
 
 # Removes all files with the specified filename and any of the specified extensions
-def remove_extension_versions(filename, extensions):
+def removeExtensionVersions(filename, extensions):
 	for extension in extensions:
 		if os.path.exists(filename + "." + extension):
 			os.remove(filename + "." + extension)
 
 # Replaces the specified subpattern of a regular expression match
-def replace_subpattern(string, pattern, groupNo, replacement):
+def replaceSubpattern(string, pattern, groupNo, replacement):
 	p = re.compile(pattern, re.DOTALL)
 	matches = p.search(string)
 	if matches != None:
@@ -68,20 +67,20 @@ def replace_subpattern(string, pattern, groupNo, replacement):
 		return string
 
 # Removes any \usepackage commands from a LaTex source for the specified package
-def remove_package(string, packageName):
-	return replace_subpattern(string, "\\\\usepackage(\\[[^\\]]+?\\]){0,1}\\s*?\\{" + packageName + "\\}", 0, "")
+def removePackage(string, packageName):
+	return replaceSubpattern(string, "\\\\usepackage(\\[[^\\]]+?\\]){0,1}\\s*?\\{" + packageName + "\\}", 0, "")
 
 # Removes all tags with the specified name, and whose attribute matches the specified value, if supplied
-def remove_tags(dom, tagName, attribName = None, attribValue = None):
+def removeTags(dom, tagName, attribName = None, attribValue = None):
 	for node in dom.getElementsByTagName(tagName):
 		if attribName == None or node.getAttribute(attribName) == attribValue:
 			node.parentNode.removeChild(node)
 
 # Reads XML data from a file, sanitises it, and parses it using minidom
-def parse_xml_file(xmlFile):
+def parseXmlFile(xmlFile):
 	
 	# Read the XML data from the specified file
-	xmlData = file_get_contents(xmlFile)
+	xmlData = getFileContents(xmlFile)
 	
 	# Convert unsupported HTML entities into XML-compatible character references
 	# (See <http://www.dwheeler.com/essays/quotes-in-html.html>)
@@ -94,14 +93,49 @@ def parse_xml_file(xmlFile):
 	dom = parseString(xmlData)
 	return dom
 
+# Executes a command and, if it fails, prints the return code, stdout, and stderr
+def executeCommand(commandArgs, quitOnError = True, redirectStdoutHere = None):
+	
+	# Redirect the command's stdout to a file if requested
+	stdout = subprocess.PIPE
+	if redirectStdoutHere != None:
+		stdout = open(redirectStdoutHere, "w")
+	
+	# Execute the command and capture its stderr (ensure we close stdin so the command can't hang waiting for input)
+	proc = subprocess.Popen(commandArgs, stdin=subprocess.PIPE, stdout=stdout, stderr=subprocess.PIPE)
+	proc.stdin.close()
+	(stdoutdata, stderrdata) = proc.communicate(None)
+	
+	# If we were redirecting the command's stdout, close the output file
+	if stdout != subprocess.PIPE:
+		stdout.close()
+	
+	# If the command failed, report the error
+	if proc.returncode != 0:
+		print("Command", commandArgs, "failed with Exit Code", proc.returncode)
+		print("Stdout was: \"" + stdoutdata + "\"")
+		print("Stderr was: \"" + stderrdata + "\"")
+		
+		# If requested, terminate execution
+		if quitOnError == True:
+			sys.exit(1)
 
-# Ensure the correct number of command-line arguments were supplied
-if len(sys.argv) < 2:
-	print("Usage syntax:\n\n" + sys.argv[0].replace(".py", "") + " LYXFILE.LYX")
-	sys.exit()
+# Parse command-line arguments
+parser = argparse.ArgumentParser()
+parser.add_argument("--keep-files", action="store_true", help="Don't delete intermediate files")
+parser.add_argument("-t", "--template", default="", help="Template DOCX file for pandoc")
+parser.add_argument("lyxfile", help="Input file")
+args = parser.parse_args()
 
-# Process command-line arguments
-lyxFile         = sys.argv[1]
+# If an absolute path to the LyX file was supplied, change into the file's directory
+lyxFile        = args.lyxfile
+lyxFileDir     = os.path.dirname(lyxFile)
+origWorkingDir = os.getcwd()
+if lyxFileDir != "" and lyxFileDir != ".":
+	os.chdir(lyxFileDir)
+
+# Determine the filenames of the generated files
+lyxFile         = os.path.basename(lyxFile)
 texFile         = lyxFile.replace(".lyx", ".tex")
 texFileNoSpaces = texFile.replace(" ", "_")
 xhtmlFile       = texFileNoSpaces.replace(".tex", ".html")
@@ -109,52 +143,58 @@ xhtmlFileUTF8   = xhtmlFile.replace(".html", ".utf8.html")
 docxFile        = lyxFile.replace(".lyx", ".docx")
 
 # Export the LaTex file using LyX
-call(["lyx", "--export", "latex", lyxFile])
+executeCommand(["lyx", "--export", "latex", lyxFile])
 
 # If the LaTeX filename has spaces in it, rename it
 if texFile != texFileNoSpaces:
+	
+	# If the renamed LaTeX file exists (from a previous run), overwrite it
+	if os.path.exists(texFileNoSpaces):
+		os.remove(texFileNoSpaces)
+	
 	os.rename(texFile, texFileNoSpaces)
 	texFile = texFileNoSpaces
 
 # Read the generated LaTex file
-texData = file_get_contents(texFile)
+texData = getFileContents(texFile)
 
 # Remove use the hyperref package and packages that rely on it
-texData = remove_package(texData, "hyperref")
-texData = remove_package(texData, "breakurl")
+texData = removePackage(texData, "hyperref")
+texData = removePackage(texData, "breakurl")
 
 # Strip the code inserted by LyX containing the \phantomsection command
-texData = replace_subpattern(texData, "\\\\bibliographystyle\\{.+?\\}(.+?)\\\\bibliography\\{", 1, "")
+texData = replaceSubpattern(texData, "\\\\bibliographystyle\\{.+?\\}(.+?)\\\\bibliography\\{", 1, "")
 
 # Write the modified LaTex back to the generated LaTex file
-file_put_contents(texFile, texData)
+putFileContents(texFile, texData)
 
-# Run latex on the LaTeX file
-call(["latex", texFile])
-
-# Run bibtex on the LaTeX file
-call(["bibtex", texFile.replace(".tex", ".aux")])
+# Run latex and bibtex on the LaTeX file
+executeCommand(["latex", texFile])
+executeCommand(["bibtex", texFile.replace(".tex", ".aux")])
 
 # Use tex4ht to generate the XHTML file
-call(["htlatex", texFile, "xhtml, charset=utf-8"])
+executeCommand(["htlatex", texFile, "xhtml, charset=utf-8"])
 
 # Use iconv to transform the XHTML file into UTF-8 (input and output filenames cannot match, older iconv versions don't support "-o")
-utf8out = open(xhtmlFileUTF8, "w")
-call(["iconv", "-t", "utf-8", xhtmlFile], stdout=utf8out)
-utf8out.close()
+executeCommand(["iconv", "-t", "utf-8", xhtmlFile], True, xhtmlFileUTF8)
 
 # Delete the original (non-UTF-8) XHTML file and replace it with the UTF-8 one
 os.remove(xhtmlFile)
 os.rename(xhtmlFileUTF8, xhtmlFile)
 
 # Parse the generated XHTML file
-dom = parse_xml_file(xhtmlFile)
+dom = parseXmlFile(xhtmlFile)
 
-# Strip the <title> tag to prevent pandoc prepending the title to the output
-remove_tags(dom, "title")
+# Strip the <title> and <meta name="date"> tags to prevent pandoc prepending the title and date to the output
+removeTags(dom, "title")
+removeTags(dom, "meta", "name", "date")
 
-# Strip any <meta> tag that supplies a date value, to prevent pandoc prepending the date to the output
-remove_tags(dom, "meta", "name", "date")
+# Strip the <hr> tags surrounding figures
+removeTags(dom, "hr", "class", "figure")
+removeTags(dom, "hr", "class", "endfigure")
+
+# Strip all <span class="bibsp"> tags
+removeTags(dom, "span", "class", "bibsp")
 
 # Strip all <a> tags with a href value starting with "#"
 for node in dom.getElementsByTagName("a"):
@@ -187,19 +227,25 @@ for node in dom.getElementsByTagName("span"):
 			space = dom.createTextNode(" ")
 			node.parentNode.insertBefore(space, node.nextSibling)
 
-# Strip all <span class="bibsp"> tags
-remove_tags(dom, "span", "class", "bibsp")
-
 # Write the modified XML back to the XHTML file
-file_put_contents(xhtmlFile, dom.toxml())
+putFileContents(xhtmlFile, dom.toxml())
 
-# Generate the DOCX file using pandoc
-call(["pandoc", "-o", docxFile, xhtmlFile])
+# Generate the DOCX file using pandoc (using a custom template if specified)
+pandocCommand = ["pandoc", "-o", docxFile, xhtmlFile]
+if args.template != "":
+	pandocCommand.extend(["--template", args.template])
+executeCommand(pandocCommand)
 
-# Remove any image files generated by tex4ht
-for node in dom.getElementsByTagName("img"):
-	if node.getAttribute("src") != None:
-		os.remove(node.getAttribute("src"))
+# Determine if we are removing the intermediate files
+if args.keep_files == False:
+	
+	# Remove any image files generated by tex4ht
+	for node in dom.getElementsByTagName("img"):
+		if node.getAttribute("src") != None:
+			os.remove(node.getAttribute("src"))
 
-# Cleanup intermediate files
-remove_extension_versions(texFileNoSpaces.replace(".tex", ""), ["4ct","4tc","aux","bbl","blg","css","dvi","html","idv","lg","log","tex","tmp","xref"])
+	# Cleanup intermediate files
+	removeExtensionVersions(texFileNoSpaces.replace(".tex", ""), ["4ct","4tc","aux","bbl","blg","css","dvi","html","idv","lg","log","tex","tmp","xref"])
+
+# Change back to our original working directory
+os.chdir(origWorkingDir)
