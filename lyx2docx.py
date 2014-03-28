@@ -10,8 +10,8 @@
 #    lyx
 #    latex
 #    bibtex
-#    htlatex
-#    iconv
+#    htlatex  (the MikTeX tex4ht-bin package is insufficient, tex4ht-base is required)
+#    iconv    (only used under Windows, where tex4ht UTF-8 output support is broken)
 #    pandoc
 # 
 #  ---
@@ -36,7 +36,7 @@
 
 from __future__ import print_function
 from xml.dom.minidom import parse, parseString
-import re, os, sys, subprocess, argparse
+import re, os, sys, subprocess, platform, argparse
 
 # Retrieves the contents of a file
 def getFileContents(filename):
@@ -113,8 +113,8 @@ def executeCommand(commandArgs, quitOnError = True, redirectStdoutHere = None):
 	# If the command failed, report the error
 	if proc.returncode != 0:
 		print("Command", commandArgs, "failed with Exit Code", proc.returncode)
-		print("Stdout was: \"" + stdoutdata + "\"")
-		print("Stderr was: \"" + stderrdata + "\"")
+		print("Stdout was: \"", stdoutdata, "\"", sep="")
+		print("Stderr was: \"", stderrdata, "\"", sep="")
 		
 		# If requested, terminate execution
 		if quitOnError == True:
@@ -139,7 +139,6 @@ lyxFile         = os.path.basename(lyxFile)
 texFile         = lyxFile.replace(".lyx", ".tex")
 texFileNoSpaces = texFile.replace(" ", "_")
 xhtmlFile       = texFileNoSpaces.replace(".tex", ".html")
-xhtmlFileUTF8   = xhtmlFile.replace(".html", ".utf8.html")
 docxFile        = lyxFile.replace(".lyx", ".docx")
 
 # Export the LaTex file using LyX
@@ -172,15 +171,24 @@ putFileContents(texFile, texData)
 executeCommand(["latex", texFile])
 executeCommand(["bibtex", texFile.replace(".tex", ".aux")])
 
-# Use tex4ht to generate the XHTML file
-executeCommand(["htlatex", texFile, "xhtml, charset=utf-8"])
-
-# Use iconv to transform the XHTML file into UTF-8 (input and output filenames cannot match, older iconv versions don't support "-o")
-executeCommand(["iconv", "-t", "utf-8", xhtmlFile], True, xhtmlFileUTF8)
-
-# Delete the original (non-UTF-8) XHTML file and replace it with the UTF-8 one
-os.remove(xhtmlFile)
-os.rename(xhtmlFileUTF8, xhtmlFile)
+# Determine if we are running under Windows
+if platform.system() == "Windows":
+	
+	# Use tex4ht to generate the XHTML file, avoiding the broken UTF-8 output support under Windows
+	executeCommand(["htlatex", texFile, "xhtml, charset=utf-8"])
+	
+	# Use iconv to transform the XHTML file into UTF-8 (input and output filenames cannot match, older iconv versions don't support "-o")
+	xhtmlFileUTF8 = xhtmlFile.replace(".html", ".utf8.html")
+	executeCommand(["iconv", "-t", "utf-8", xhtmlFile], True, xhtmlFileUTF8)
+	
+	# Delete the original (non-UTF-8) XHTML file and replace it with the UTF-8 one
+	os.remove(xhtmlFile)
+	os.rename(xhtmlFileUTF8, xhtmlFile)
+	
+else:
+	
+	# On non-Windows platforms, simply use the native UTF-8 output support of tex4ht
+	executeCommand(["htlatex", texFile, "xhtml, charset=utf-8", " -cunihtf -utf8"])
 
 # Parse the generated XHTML file
 dom = parseXmlFile(xhtmlFile)
