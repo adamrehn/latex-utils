@@ -124,11 +124,12 @@ def executeCommand(commandArgs, quitOnError = True, redirectStdoutHere = None):
 parser = argparse.ArgumentParser()
 parser.add_argument("--keep-files", action="store_true", help="Don't delete intermediate files")
 parser.add_argument("-t", "--template", default="", help="Template DOCX file for pandoc (maps to pandoc --reference-docx argument)")
+parser.add_argument("-dir", default="", help="Input file directory (prepended to input file)")
 parser.add_argument("lyxfile", help="Input file")
 args = parser.parse_args()
 
 # If an absolute path to the LyX file was supplied, change into the file's directory
-lyxFile        = args.lyxfile
+lyxFile        = args.dir + args.lyxfile
 lyxFileDir     = os.path.dirname(lyxFile)
 origWorkingDir = os.getcwd()
 if lyxFileDir != "" and lyxFileDir != ".":
