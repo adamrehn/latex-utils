@@ -148,7 +148,7 @@ origWorkingDir = os.getcwd()
 if infileDir != "" and infileDir != ".":
 	os.chdir(infileDir)
 
-# Determine if we are trating the input file as a LyX file or a LaTeX file
+# Determine if we are treating the input file as a LyX file or a LaTeX file
 infile = os.path.basename(infile)
 if args.latex == True:
 	
