@@ -36,7 +36,14 @@
 
 from __future__ import print_function
 from xml.dom.minidom import parse, parseString
+from shutil import copyfile
 import re, os, sys, subprocess, platform, argparse
+
+# Replace the last occurence of a substring
+# Adapted from accepted the answer at: <http://stackoverflow.com/questions/2556108/how-to-replace-the-last-occurence-of-an-expression-in-a-string>
+def rreplace(s, old, new):
+	li = s.rsplit(old, 1)
+	return new.join(li)
 
 # Retrieves the contents of a file
 def getFileContents(filename):
@@ -56,6 +63,11 @@ def removeExtensionVersions(filename, extensions):
 	for extension in extensions:
 		if os.path.exists(filename + "." + extension):
 			os.remove(filename + "." + extension)
+
+# Replaces the file extension component of a path with the specified extension
+def replaceExtension(path, newExtension):
+	fileName, fileExtension = os.path.splitext(path)
+	return rreplace(path, fileExtension, newExtension)
 
 # Replaces the specified subpattern of a regular expression match
 def replaceSubpattern(string, pattern, groupNo, replacement):
@@ -125,25 +137,35 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--keep-files", action="store_true", help="Don't delete intermediate files")
 parser.add_argument("-t", "--template", default="", help="Template DOCX file for pandoc (maps to pandoc --reference-docx argument)")
 parser.add_argument("-dir", default="", help="Input file directory (prepended to input file)")
-parser.add_argument("lyxfile", help="Input file")
+parser.add_argument("--latex", action="store_true", help="Treat input file as a LaTeX file (don't process it using LyX)")
+parser.add_argument("infile", help="Input file")
 args = parser.parse_args()
 
-# If an absolute path to the LyX file was supplied, change into the file's directory
-lyxFile        = args.dir + args.lyxfile
-lyxFileDir     = os.path.dirname(lyxFile)
+# If an absolute path to the input file was supplied, change into the file's directory
+infile        = args.dir + args.infile
+infileDir     = os.path.dirname(infile)
 origWorkingDir = os.getcwd()
-if lyxFileDir != "" and lyxFileDir != ".":
-	os.chdir(lyxFileDir)
+if infileDir != "" and infileDir != ".":
+	os.chdir(infileDir)
+
+# Determine if we are trating the input file as a LyX file or a LaTeX file
+infile = os.path.basename(infile)
+if args.latex == True:
+	
+	# Create a copy of the LaTeX file and work with that (allows cleanup to clobber the copy instead of the original)
+	texFile = "____" + infile
+	copyfile(infile, texFile)
+	
+else:
+	
+	# Export a LaTex file using LyX
+	texFile = replaceExtension(infile, ".tex")
+	executeCommand(["lyx", "--export", "latex", infile])
 
 # Determine the filenames of the generated files
-lyxFile         = os.path.basename(lyxFile)
-texFile         = lyxFile.replace(".lyx", ".tex")
 texFileNoSpaces = texFile.replace(" ", "_")
-xhtmlFile       = texFileNoSpaces.replace(".tex", ".html")
-docxFile        = lyxFile.replace(".lyx", ".docx")
-
-# Export the LaTex file using LyX
-executeCommand(["lyx", "--export", "latex", lyxFile])
+xhtmlFile       = replaceExtension(texFileNoSpaces, ".html")
+docxFile        = replaceExtension(infile, ".docx")
 
 # If the LaTeX filename has spaces in it, rename it
 if texFile != texFileNoSpaces:
@@ -170,7 +192,7 @@ putFileContents(texFile, texData)
 
 # Run latex and bibtex on the LaTeX file
 executeCommand(["latex", texFile])
-executeCommand(["bibtex", texFile.replace(".tex", ".aux")])
+executeCommand(["bibtex", replaceExtension(texFile, ".aux")])
 
 # Determine if we are running under Windows
 if platform.system() == "Windows":
@@ -179,7 +201,7 @@ if platform.system() == "Windows":
 	executeCommand(["htlatex", texFile, "xhtml, charset=utf-8"])
 	
 	# Use iconv to transform the XHTML file into UTF-8 (input and output filenames cannot match, older iconv versions don't support "-o")
-	xhtmlFileUTF8 = xhtmlFile.replace(".html", ".utf8.html")
+	xhtmlFileUTF8 = replaceExtension(xhtmlFile, ".utf8.html")
 	executeCommand(["iconv", "-t", "utf-8", xhtmlFile], True, xhtmlFileUTF8)
 	
 	# Delete the original (non-UTF-8) XHTML file and replace it with the UTF-8 one
@@ -254,7 +276,7 @@ if args.keep_files == False:
 			os.remove(node.getAttribute("src"))
 
 	# Cleanup intermediate files
-	removeExtensionVersions(texFileNoSpaces.replace(".tex", ""), ["4ct","4tc","aux","bbl","blg","css","dvi","html","idv","lg","log","tex","tmp","xref"])
+	removeExtensionVersions(replaceExtension(texFileNoSpaces, ""), ["4ct","4tc","aux","bbl","blg","css","dvi","html","idv","lg","log","tex","tmp","xref"])
 
 # Change back to our original working directory
 os.chdir(origWorkingDir)
