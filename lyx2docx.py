@@ -113,10 +113,9 @@ def executeCommand(commandArgs, quitOnError = True, redirectStdoutHere = None):
 	if redirectStdoutHere != None:
 		stdout = open(redirectStdoutHere, "w")
 	
-	# Execute the command and capture its stderr (ensure we close stdin so the command can't hang waiting for input)
-	proc = subprocess.Popen(commandArgs, stdin=subprocess.PIPE, stdout=stdout, stderr=subprocess.PIPE)
-	proc.stdin.close()
-	(stdoutdata, stderrdata) = proc.communicate(None)
+	# Execute the command and capture its stdout and stderr (ensure we send a blank string to stdin so the command can't hang waiting for input)
+	proc = subprocess.Popen(commandArgs, stdout=stdout, stderr=subprocess.PIPE)
+	(stdoutdata, stderrdata) = proc.communicate(input="")
 	
 	# If we were redirecting the command's stdout, close the output file
 	if stdout != subprocess.PIPE:
