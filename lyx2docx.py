@@ -7,7 +7,7 @@
 #
 #  Requires the following programs in the PATH:
 #
-#    lyx
+#    lyx      (unless using the --latex option to process a LaTeX input file)
 #    latex
 #    bibtex
 #    htlatex  (the MikTeX tex4ht-bin package is insufficient, tex4ht-base is required)
@@ -40,7 +40,7 @@ from shutil import copyfile
 import re, os, sys, subprocess, platform, argparse
 
 # Replace the last occurence of a substring
-# Adapted from accepted the answer at: <http://stackoverflow.com/questions/2556108/how-to-replace-the-last-occurence-of-an-expression-in-a-string>
+# Adapted from the accepted answer at: <http://stackoverflow.com/questions/2556108/how-to-replace-the-last-occurence-of-an-expression-in-a-string>
 def rreplace(s, old, new):
 	li = s.rsplit(old, 1)
 	return new.join(li)
