@@ -131,6 +131,10 @@ def executeCommand(commandArgs, quitOnError = True, redirectStdoutHere = None):
 		if quitOnError == True:
 			sys.exit(1)
 
+# Adding items to the PATH under Darwin can be a hassle compared to other platforms, so we support auto-adding LyX
+if platform.system() == "Darwin":
+	os.putenv("PATH", os.getenv("PATH") + ":/Applications/LyX.app/Contents/MacOS")
+
 # Parse command-line arguments
 parser = argparse.ArgumentParser()
 parser.add_argument("--keep-files", action="store_true", help="Don't delete intermediate files")
