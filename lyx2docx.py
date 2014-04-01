@@ -113,9 +113,9 @@ def executeCommand(commandArgs, quitOnError = True, redirectStdoutHere = None):
 	if redirectStdoutHere != None:
 		stdout = open(redirectStdoutHere, "w")
 	
-	# Execute the command and capture its stdout and stderr (ensure we send a blank string to stdin so the command can't hang waiting for input)
+	# Execute the command and capture its stdout and stderr
 	proc = subprocess.Popen(commandArgs, stdout=stdout, stderr=subprocess.PIPE)
-	(stdoutdata, stderrdata) = proc.communicate(input="")
+	(stdoutdata, stderrdata) = proc.communicate(None)
 	
 	# If we were redirecting the command's stdout, close the output file
 	if stdout != subprocess.PIPE:
@@ -130,6 +130,11 @@ def executeCommand(commandArgs, quitOnError = True, redirectStdoutHere = None):
 		# If requested, terminate execution
 		if quitOnError == True:
 			sys.exit(1)
+
+# Close stdin to ensure that subprocesses can't hang waiting for input
+stdinFileno = sys.stdin.fileno()
+sys.stdin.close()
+os.close(stdinFileno)
 
 # Adding items to the PATH under Darwin can be a hassle compared to other platforms, so we support auto-adding LyX
 if platform.system() == "Darwin":
