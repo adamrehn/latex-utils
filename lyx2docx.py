@@ -133,7 +133,7 @@ def executeCommand(commandArgs, quitOnError = True, redirectStdoutHere = None):
 
 # Adding items to the PATH under Darwin can be a hassle compared to other platforms, so we support auto-adding LyX
 if platform.system() == "Darwin":
-	os.putenv("PATH", os.getenv("PATH") + ":/Applications/LyX.app/Contents/MacOS")
+	os.environ["PATH"] += ":/Applications/LyX.app/Contents/MacOS"
 
 # Parse command-line arguments
 parser = argparse.ArgumentParser()
