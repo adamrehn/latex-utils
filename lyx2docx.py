@@ -268,8 +268,14 @@ for node in dom.getElementsByTagName("span"):
 			space = dom.createTextNode(" ")
 			node.parentNode.insertBefore(space, node.nextSibling)
 
+# Retrieve the modified XML
+modifiedXML = dom.toxml()
+
+# Correct for implementations of the XML DOM classes that write empty-element tags for empty div elements
+modifiedXML = re.sub("<div(.*?)\/>", "<div\\1></div>", modifiedXML, flags = re.DOTALL | re.IGNORECASE)
+
 # Write the modified XML back to the XHTML file
-putFileContents(xhtmlFile, dom.toxml())
+putFileContents(xhtmlFile, modifiedXML)
 
 # Generate the DOCX file using pandoc (using a custom template if specified)
 pandocCommand = ["pandoc", "-o", docxFile, xhtmlFile]
