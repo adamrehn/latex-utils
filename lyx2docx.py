@@ -228,9 +228,11 @@ dom = parseXmlFile(xhtmlFile)
 removeTags(dom, "title")
 removeTags(dom, "meta", "name", "date")
 
-# Strip the <hr> tags surrounding figures
+# Strip the <hr> tags surrounding figures and tables
 removeTags(dom, "hr", "class", "figure")
 removeTags(dom, "hr", "class", "endfigure")
+removeTags(dom, "hr", "class", "float")
+removeTags(dom, "hr", "class", "endfloat")
 
 # Strip all <span class="bibsp"> tags
 removeTags(dom, "span", "class", "bibsp")
