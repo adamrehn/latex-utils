@@ -269,11 +269,14 @@ for node in dom.getElementsByTagName("span"):
 			space = dom.createTextNode(" ")
 			node.parentNode.insertBefore(space, node.nextSibling)
 
+# Find all empty div tags and remove them, since some implementations of the XML DOM classes write empty-element tags (<div />)
+# for empty div elements, breaking layout in some web browsers
+for node in dom.getElementsByTagName("div"):
+	if node.hasChildNodes() == False and (node.nodeValue == None or len(node.nodeValue) == 0):
+		node.parentNode.removeChild(node)
+
 # Retrieve the modified XML
 modifiedXML = dom.toxml()
-
-# Correct for implementations of the XML DOM classes that write empty-element tags for empty div elements
-modifiedXML = re.sub("<div(.*?)\/>", "<div\\1></div>", modifiedXML, flags = re.DOTALL | re.IGNORECASE)
 
 # Write the modified XML back to the XHTML file
 putFileContents(xhtmlFile, modifiedXML)
