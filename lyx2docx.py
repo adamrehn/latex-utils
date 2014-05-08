@@ -145,6 +145,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--keep-files", action="store_true", help="Don't delete intermediate files")
 parser.add_argument("-t", "--template", default="", help="Template DOCX file for pandoc (maps to pandoc --reference-docx argument)")
 parser.add_argument("-dir", default="", help="Input file directory (prepended to input file)")
+parser.add_argument("-filter", default=None, help="Filter command to process intermediate XHTML file")
 parser.add_argument("--latex", action="store_true", help="Treat input file as a LaTeX file (don't process it using LyX)")
 parser.add_argument("infile", help="Input file")
 args = parser.parse_args()
@@ -276,6 +277,10 @@ modifiedXML = re.sub("<div(.*?)\/>", "<div\\1></div>", modifiedXML, flags = re.D
 
 # Write the modified XML back to the XHTML file
 putFileContents(xhtmlFile, modifiedXML)
+
+# If a filter step was specified, execute it now
+if args.filter != None:
+	executeCommand([args.filter, xhtmlFile, xhtmlFile])
 
 # Generate the DOCX file using pandoc (using a custom template if specified)
 pandocCommand = ["pandoc", "-o", docxFile, xhtmlFile]
