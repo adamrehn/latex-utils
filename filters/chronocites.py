@@ -44,6 +44,13 @@ def putFileContents(filename, data):
 	f.write(data.encode("utf-8"))
 	f.close()
 
+def removeAmpersandEntities(s):
+	return s.replace('&amp;', '&&')
+
+def restoreAmpersandEntities(s):
+	return s.replace('&&', '&amp;')
+
+
 if (len(sys.argv) > 2):
 	
 	data = getFileContents(sys.argv[1]);
@@ -51,9 +58,9 @@ if (len(sys.argv) > 2):
 	# Find each of the citations with multiple entries
 	def sortCitationChronologically(match):
 		
-		citationEntries = match.group(1).split(';');
+		citationEntries = removeAmpersandEntities(match.group(1)).split(';');
 		if len(citationEntries) < 2:
-			return match.group(0).replace(u'&', u'&amp;')
+			return restoreAmpersandEntities(match.group(0))
 		
 		# Iterate over each of the entries and extract the year identifiers, grouping the entries by year
 		years = {}
@@ -76,11 +83,11 @@ if (len(sys.argv) > 2):
 				chronoEntries.append(entry + u", " + year)
 		
 		# Replace the original citation with the chronologically sorted one
-		sortedCitation = '(' + ('; '.join(chronoEntries)).replace(u'&', u'&amp;') + ')'
+		sortedCitation = '(' + restoreAmpersandEntities('; '.join(chronoEntries)) + ')'
 		return sortedCitation
 		
 	
-	processedData = re.sub("\((.+?)\)", sortCitationChronologically, data.replace(u'&amp;', u'&'), flags=re.DOTALL)
+	processedData = re.sub("\((.+?)\)", sortCitationChronologically, data, flags=re.DOTALL)
 	putFileContents(sys.argv[2], processedData)
 
 else:
