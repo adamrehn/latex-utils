@@ -65,7 +65,7 @@ if (len(sys.argv) > 2):
 		# Iterate over each of the entries and extract the year identifiers, grouping the entries by year
 		years = {}
 		for entry in citationEntries:
-			components = entry.strip().rsplit(',', 2)
+			components = entry.strip().rsplit(',', 1)
 			if len(components) == 2:
 				year = components[1].strip()
 				if year in years:
